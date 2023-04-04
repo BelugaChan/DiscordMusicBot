@@ -157,7 +157,7 @@ namespace _132
         public static List<string> ShowSongs()
         {
             List<string> songs = new List<string>();
-            string cs = @"URI=file:D:\Programming\132\bin\Debug\net6.0\files.db";
+            string cs = $"URI=file:{Path.GetFullPath(@"files.db")}";
             using var con = new SQLiteConnection(cs);
             con.Open();
             string stm = "SELECT * FROM files";
@@ -174,7 +174,7 @@ namespace _132
         private static string Sqlite(double number)
         {
             string e = "";
-            string cs = @"URI=file:D:\Programming\132\bin\Debug\net6.0\files.db";
+            string cs = $"URI=file:{Path.GetFullPath(@"files.db")}";
             using var con = new SQLiteConnection(cs);
             con.Open();
             string stm = "SELECT * FROM files";
