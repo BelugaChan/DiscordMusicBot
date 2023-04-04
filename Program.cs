@@ -143,6 +143,75 @@ namespace _132
                 await ctx.EditResponseAsync(builder);
             }
 
+            [SlashCommand("Pause", "Pause radio or song")]
+            public async Task PauseCommand(InteractionContext ctx)
+            {
+                var builder = new DiscordWebhookBuilder();
+                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+                var vnext = ctx.Client.GetVoiceNext();
+                var connection = vnext.GetConnection(ctx.Guild);
+                if (connection == null)
+                {
+                    builder = new DiscordWebhookBuilder().WithContent("Nothing playing here");
+                    await ctx.EditResponseAsync(builder);
+                    //await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().WithContent("You must be in a voice channel to use this command."));
+                    return;
+                }
+
+                var transmit = connection.GetTransmitSink();
+
+                transmit.Pause();
+                builder = new DiscordWebhookBuilder().WithContent($"Paused");
+
+                await ctx.EditResponseAsync(builder);
+            }
+
+            [SlashCommand("resume", "resume radio or song")]
+            public async Task ResumeCommand(InteractionContext ctx)
+            {
+                var builder = new DiscordWebhookBuilder();
+                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+                var vnext = ctx.Client.GetVoiceNext();
+                var connection = vnext.GetConnection(ctx.Guild);
+                if (connection == null)
+                {
+                    builder = new DiscordWebhookBuilder().WithContent("Nothing playing here");
+                    await ctx.EditResponseAsync(builder);
+                    //await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().WithContent("You must be in a voice channel to use this command."));
+                    return;
+                }
+
+                var transmit = connection.GetTransmitSink();
+
+                transmit.ResumeAsync();
+                builder = new DiscordWebhookBuilder().WithContent($"Resumed");
+                await ctx.EditResponseAsync(builder);
+
+            }
+
+            [SlashCommand("stop", "stop radio or song")]
+            public async Task StopCommand(InteractionContext ctx)
+            {
+                var builder = new DiscordWebhookBuilder();
+                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+                var vnext = ctx.Client.GetVoiceNext();
+                var connection = vnext.GetConnection(ctx.Guild);
+                if (connection == null)
+                {
+                    builder = new DiscordWebhookBuilder().WithContent("Nothing playing here");
+                    await ctx.EditResponseAsync(builder);
+                    //await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().WithContent("You must be in a voice channel to use this command."));
+                    return;
+                }
+
+                var transmit = connection.GetTransmitSink();
+
+                transmit.Dispose();
+                builder = new DiscordWebhookBuilder().WithContent($"stopped");
+                await ctx.EditResponseAsync(builder);
+
+            }
+
             [SlashCommand("show", "show all songs")]
             public async Task ShowCommand(InteractionContext ctx)
             {
