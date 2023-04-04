@@ -13,13 +13,14 @@ using System.IO;
 using System.Text;
 using System.Data;
 using DSharpPlus.EventArgs;
+using Microsoft.VisualBasic;
 
 namespace _132
 {
 
-    internal class Program
+    public class Program
     {
-
+        //private readonly DiscordScreenSharingService _screenSharingService;
         static async Task Main(string[] args)
         {
             var discord = new DiscordClient(new DiscordConfiguration()
@@ -77,18 +78,19 @@ namespace _132
             [SlashCommand("play", "playing radio or song")]
             public async Task PlayMusicCommand(InteractionContext ctx, [Option("number", "choose song's number")] double number = -1)
             {
-                var 
-                var path = "";
+                var builder = new DiscordWebhookBuilder();
+                var fullPath = "";
                 if (number == -1)
                 {
-                    path = "https://pool.anison.fm:9000/AniSonFM(320)";
+                    fullPath = "https://pool.anison.fm:9000/AniSonFM(320)";
                 }
                 else
                 {
-                    path = Sqlite(number);
+                    string path = @"Music\Luna.mp3";
+                    fullPath = Path.GetFullPath(path);
+                    //string pathe = Sqlite(number);
                 }
-                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);                
-                
+                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
 
                 var vnext = ctx.Client.GetVoiceNext();
                 var connection = vnext.GetConnection(ctx.Guild);
@@ -101,15 +103,16 @@ namespace _132
                 else if (connection == null && channel == null)
                 {
                     builder = new DiscordWebhookBuilder().WithContent("You must be in a voice channel to use this command.");
+                    await ctx.EditResponseAsync(builder);
                     //await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().WithContent("You must be in a voice channel to use this command."));
                     return;
                 }
                 var transmit = connection.GetTransmitSink();
 
-                builder = new DiscordWebhookBuilder().WithContent($"Now playing: {Path.GetFileNameWithoutExtension(path)}");
+                builder = new DiscordWebhookBuilder().WithContent($"Now playing: {Path.GetFileNameWithoutExtension(fullPath)}");
                 await ctx.EditResponseAsync(builder);
 
-                await ConvertAudioToPcmAsync(path, transmit);
+                await ConvertAudioToPcmAsync(fullPath, transmit);
             }
 
             [SlashCommand("leave", "leave voice channel")]
@@ -129,7 +132,8 @@ namespace _132
             {
                 List<string> list = ShowSongs();
                 await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().WithContent(BuildString(list)));
-            }                                   
+            }
+           
         }
         private static async Task VoiceReceiveHandler(VoiceNextConnection connection, VoiceReceiveEventArgs args)
         {
@@ -202,7 +206,7 @@ namespace _132
             }
             reader.Close();
             output.Pause();
-            output.Dispose();
+            output.Dispose();                                               
             
         }
 
