@@ -14,23 +14,40 @@ using System.Text;
 using System.Data;
 using DSharpPlus.EventArgs;
 using Microsoft.VisualBasic;
+using System.Reflection.PortableExecutable;
+using System.Collections.Specialized;
+using System.Threading.Channels;
+using System.Threading;
+
 
 namespace _132
 {
 
     public class Program
     {
-        //private readonly DiscordScreenSharingService _screenSharingService;
-        static async Task Main(string[] args)
+        private static DiscordClient discord;
+
+        static DiscordClient Inicialization()
         {
-            var discord = new DiscordClient(new DiscordConfiguration()
+            discord = new DiscordClient(new DiscordConfiguration()
             {
                 Token = "MTA4ODA1ODkyOTIzNTM3ODE4Nw.GKm6_C.nLFUToqixvfuOdIXrKDYz4v1I32Ok8XZl3gxq4",
                 TokenType = TokenType.Bot,
                 Intents = DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents
             });
+            return discord;
+        }
+        //private readonly DiscordScreenSharingService _screenSharingService;
+        static async Task Main(string[] args)
+        {
+            //discord = new DiscordClient(new DiscordConfiguration()
+            //{
+            //    Token = "MTA4ODA1ODkyOTIzNTM3ODE4Nw.GKm6_C.nLFUToqixvfuOdIXrKDYz4v1I32Ok8XZl3gxq4",
+            //    TokenType = TokenType.Bot,
+            //    Intents = DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents
+            //});
 
-
+            Inicialization();
             //регистрация слэш-команд
             var slash = discord.UseSlashCommands(new SlashCommandsConfiguration
             {
@@ -67,7 +84,7 @@ namespace _132
                     await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().WithContent("You must be in a voice channel to use this command."));
                     return;
                 }
-
+                
                 await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().WithContent($"Joining {channel.Name}"));
                 var vnext = ctx.Client.GetVoiceNext();
                 var connection = await vnext.ConnectAsync(channel);
@@ -86,9 +103,9 @@ namespace _132
                 }
                 else
                 {
-                    string path = @"Music\Luna.mp3";
+                    //string path = @"Music\Luna.mp3";                    
+                    string path = Sqlite(number);
                     fullPath = Path.GetFullPath(path);
-                    //string pathe = Sqlite(number);
                 }
                 await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
 
@@ -108,11 +125,10 @@ namespace _132
                     return;
                 }
                 var transmit = connection.GetTransmitSink();
-
                 builder = new DiscordWebhookBuilder().WithContent($"Now playing: {Path.GetFileNameWithoutExtension(fullPath)}");
                 await ctx.EditResponseAsync(builder);
 
-                await ConvertAudioToPcmAsync(fullPath, transmit);
+                await ConvertAudioToPcmAsync(fullPath, transmit, ctx);
             }
 
             [SlashCommand("leave", "leave voice channel")]
@@ -130,7 +146,10 @@ namespace _132
             [SlashCommand("show", "show all songs")]
             public async Task ShowCommand(InteractionContext ctx)
             {
+                //await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
                 List<string> list = ShowSongs();
+                //var builder = new DiscordWebhookBuilder().WithContent("Here they are");
+                //await ctx.EditResponseAsync(builder);
                 await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().WithContent(BuildString(list)));
             }
            
@@ -157,10 +176,10 @@ namespace _132
         public static List<string> ShowSongs()
         {
             List<string> songs = new List<string>();
-            string cs = $"URI=file:{Path.GetFullPath(@"files.db")}";
+            string cs = @"URI=file:D:\Programming\132\bin\Debug\net6.0\music.db";
             using var con = new SQLiteConnection(cs);
             con.Open();
-            string stm = "SELECT * FROM files";
+            string stm = "SELECT * FROM music";
             using var cmd = new SQLiteCommand(stm, con);
             using SQLiteDataReader rdr = cmd.ExecuteReader();
             while (rdr.Read())
@@ -174,10 +193,10 @@ namespace _132
         private static string Sqlite(double number)
         {
             string e = "";
-            string cs = $"URI=file:{Path.GetFullPath(@"files.db")}";
+            string cs = @"URI=file:D:\Programming\132\bin\Debug\net6.0\music.db";
             using var con = new SQLiteConnection(cs);
             con.Open();
-            string stm = "SELECT * FROM files";
+            string stm = "SELECT * FROM music";
             using var cmd = new SQLiteCommand(stm, con);
             using SQLiteDataReader rdr = cmd.ExecuteReader();
             while (rdr.Read())
@@ -191,8 +210,47 @@ namespace _132
             return e;
         }
 
+        public static async Task CheckMessage(VoiceTransmitSink output, InteractionContext ctx)
+        {
+            DiscordGuild guild = discord.GetGuildAsync(1083380097718960259).Result;
 
-        private static async Task ConvertAudioToPcmAsync(string filePath, VoiceTransmitSink output)
+            // Получение объекта канала по его ID
+            DiscordChannel channel = guild.GetChannel(1083380097718960262);
+            //await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+            //var builder = new DiscordWebhookBuilder(); ;
+            //Inicialization();            
+            //discord.MessageCreated += async (s, e) =>
+            //{
+
+            //    if (e.Message.Content.ToLower().StartsWith("!stop"))
+            //    {
+            //        output.Pause();
+            //        builder = new DiscordWebhookBuilder().WithContent("song stopped!");
+            //    }
+            //    else if (e.Message.Content.ToLower().StartsWith("!continue"))
+            //    {
+            //        await output.ResumeAsync();
+            //        builder = new DiscordWebhookBuilder().WithContent("song continued!");
+            //    }
+            //};
+            CancellationToken cancellationToken = CancellationToken.None;
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                // получаем список сообщений в канале
+                var messages = await channel.GetMessagesAsync();
+
+                // проверяем наличие сообщений от пользователей
+                var userMessages = messages.Where(m => !m.Author.IsBot).ToList();
+
+                //if (userMessages.Where(t => t.Content.Contains("")))
+                //{
+                //    output.Pause();
+                //}
+                await Task.Delay(5000, cancellationToken);
+            }
+        }
+
+        private static async Task ConvertAudioToPcmAsync(string filePath, VoiceTransmitSink output, InteractionContext ctx)
         {
             MediaFoundationReader reader = new MediaFoundationReader(filePath);
             using (reader)
@@ -202,17 +260,19 @@ namespace _132
                 while ((byteCount = reader.Read(buffer, 0, buffer.Length)) > 0)
                 {
                     await output.WriteAsync(buffer, 0, byteCount);
+                    
+                    //await CheckMessage(output, ctx);
                 }
             }
+                                  
             reader.Close();
             output.Pause();
             output.Dispose();                                               
             
         }
 
-
         //барахло на всякий случай
-        
+
         //static SQLiteCommand GetCommand()
         //{
         //    string cs = @"URI=file:D:\Programming\132\bin\Debug\net6.0\files.db";
