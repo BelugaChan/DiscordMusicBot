@@ -53,6 +53,10 @@ namespace _132
             {
                 Services = new ServiceCollection().AddSingleton<Random>().BuildServiceProvider()
             });
+
+
+            slash.RegisterCommands<Empty>();
+            slash.RegisterCommands<Empty>(1083380097718960259);
             slash.RegisterCommands<MusicSL>(1083380097718960259);
 
 
@@ -67,6 +71,8 @@ namespace _132
 
             await Task.Delay(-1);
         }
+
+        public class Empty : ApplicationCommandModule { }
 
         //пошли команды
         public class MusicSL : ApplicationCommandModule
