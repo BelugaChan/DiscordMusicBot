@@ -25,7 +25,7 @@ using SpotifyAPI.Web.Auth;
 namespace _132
 {
 
-    public   class Program
+    public class Program
     {
         private static StringBuilder stringBuilder = new StringBuilder();
 
@@ -35,9 +35,9 @@ namespace _132
           .CreateDefault()
           .WithAuthenticator(new ClientCredentialsAuthenticator("1eae436156fa4655b98928e9321bd845", "8bfd61271ae24d0398cfcfc61c647bee"));
         
-        private static SpotifyClient spotify = new SpotifyClient(config);
+        private static SpotifyClient spotify = new(config);
 
-        private static List<string> tracks = new List<string>();
+        private static List<string> tracks = new();
 
 
         static DiscordClient Inicialization()
@@ -51,7 +51,7 @@ namespace _132
             return discord;
         }
         
-        static async Task Main(string[] args)
+        static async Task Main()
         {
 
             Inicialization();
@@ -85,7 +85,7 @@ namespace _132
         public class MusicSL : ApplicationCommandModule
         {
             [SlashCommand("join", "join to a channel")]
-            public async Task JoinCommand(InteractionContext ctx)
+            public static async Task JoinCommand(InteractionContext ctx)
             {
                 DiscordChannel channel;
                 try
@@ -106,7 +106,7 @@ namespace _132
 
 
             [SlashCommand("play", "playing radio or song")]
-            public async Task PlayMusicCommand(InteractionContext ctx, [Option("number", "choose song's number")] double number = -1)
+            public static async Task PlayMusicCommand(InteractionContext ctx, [Option("number", "choose song's number")] double number = -1)
             {
                 var builder = new DiscordWebhookBuilder();
                 var fullPath = "";
@@ -139,11 +139,11 @@ namespace _132
                 builder = new DiscordWebhookBuilder().WithContent($"Now playing: {Path.GetFileNameWithoutExtension(fullPath)}");
                 await ctx.EditResponseAsync(builder);
                 if (!connection.IsPlaying)
-                    await ConvertAudioToPcmAsync(fullPath, transmit, ctx);
+                    await ConvertAudioToPcmAsync(fullPath, transmit);
             }
 
             [SlashCommand("leave", "leave voice channel")]
-            public async Task LeaveCommand(InteractionContext ctx)
+            public static async Task LeaveCommand(InteractionContext ctx)
             {
                 await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
                 var vnext = ctx.Client.GetVoiceNext();
@@ -155,7 +155,7 @@ namespace _132
 
 
             [SlashCommand("Turn_off", "Turn off sound")]
-            public async Task PauseCommand(InteractionContext ctx)
+            public static async Task PauseCommand(InteractionContext ctx)
             {
                 var builder = new DiscordWebhookBuilder();
                 await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
@@ -177,7 +177,7 @@ namespace _132
             }
 
             [SlashCommand("Turn_on", "Turn on sound")]
-            public async Task ResumeCommand(InteractionContext ctx)
+            public static async Task ResumeCommand(InteractionContext ctx)
             {
                 var builder = new DiscordWebhookBuilder();
                 await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
@@ -221,7 +221,7 @@ namespace _132
             }
 
             [SlashCommand("show", "show all songs")]
-            public async Task ShowCommand(InteractionContext ctx)
+            public static async Task ShowCommand(InteractionContext ctx)
             {
                 tracks.Clear();    
                 
@@ -235,13 +235,13 @@ namespace _132
             public class GroupContainer : ApplicationCommandModule
             {
                 [SlashCommand("search", "search popular songs")]
-                public async Task SearchCommand(InteractionContext ctx, [Option("search_query", "enter the word")] string search)
+                public static async Task SearchCommand(InteractionContext ctx, [Option("search_query", "enter the word")] string search)
                 {
                     stringBuilder.Clear();
                     tracks.Clear();
 
                     await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
-                    SearchRequest request = new SearchRequest(SearchRequest.Types.Track, search);
+                    SearchRequest request = new(SearchRequest.Types.Track, search);
                     var searchResult = await spotify.Search.Item(request);
                     var e = searchResult.Tracks;
                     int counter = 1;
@@ -258,7 +258,7 @@ namespace _132
 
 
                 [SlashCommand("features", "show song's features")]
-                public async Task FeaturesCommand(InteractionContext ctx, [Option("song_number", "song's number from search")] double number)
+                public static async Task FeaturesCommand(InteractionContext ctx, [Option("song_number", "song's number from search")] double number)
                 {
                     await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
                     var builder = new DiscordWebhookBuilder();
@@ -311,7 +311,7 @@ namespace _132
         //считывание песен для слэш команды show
         public static List<string> ShowSongs()
         {
-            List<string> songs = new List<string>();
+            List<string> songs = new();
             string cs = $"URI=file:{Path.GetFullPath(@"music.db")}";
             using var con = new SQLiteConnection(cs);
             con.Open();
@@ -346,9 +346,9 @@ namespace _132
             return e;
         }      
 
-        private static async Task ConvertAudioToPcmAsync(string filePath, VoiceTransmitSink output, InteractionContext ctx)
+        public static async Task ConvertAudioToPcmAsync(string filePath, VoiceTransmitSink output)
         {
-            MediaFoundationReader reader = new MediaFoundationReader(filePath);
+            MediaFoundationReader reader = new(filePath);
             using (reader)
             {
                 var buffer = new byte[81920];
