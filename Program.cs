@@ -21,9 +21,17 @@ using System.Threading;
 using System.Collections.Generic;
 using SpotifyAPI.Web;
 using SpotifyAPI.Web.Auth;
+using Newtonsoft.Json;
 
 namespace _132
 {
+    class Config
+    {
+        public string FirstBotToken { get; set; }
+        public string SecondBotToken { get; set; }
+        public ulong FirstGuildToken { get; set;}
+        public ulong SecondGuildToken { get; set;}
+    }
 
     public class Program
     {
@@ -38,13 +46,22 @@ namespace _132
         private static SpotifyClient spotify = new(config);
 
         private static List<string> tracks = new();
-
+        internal static Config botConfig
+        {
+            get
+            {
+                string tempConfig = File.ReadAllText("config.json");
+                Config tempBotConfig = JsonConvert.DeserializeObject<Config>(tempConfig);
+                return tempBotConfig;
+            }
+        }
 
         static DiscordClient Inicialization()
         {
+
             discord = new DiscordClient(new DiscordConfiguration()
             {
-                Token = "MTA4ODA1ODkyOTIzNTM3ODE4Nw.GKm6_C.nLFUToqixvfuOdIXrKDYz4v1I32Ok8XZl3gxq4",
+                Token = botConfig.SecondBotToken,
                 TokenType = TokenType.Bot,
                 Intents = DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents
             });
@@ -62,8 +79,8 @@ namespace _132
             });
 
             slash.RegisterCommands<Empty>();
-            slash.RegisterCommands<Empty>(1083380097718960259);
-            slash.RegisterCommands<MusicSL>(1083380097718960259);
+            slash.RegisterCommands<Empty>(botConfig.SecondGuildToken);
+            slash.RegisterCommands<MusicSL>(botConfig.SecondGuildToken);
 
 
             discord.MessageCreated += async (s, e) =>
