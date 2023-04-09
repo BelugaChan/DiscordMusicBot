@@ -27,10 +27,9 @@ namespace _132
 {
     class Config
     {
-        public string FirstBotToken { get; set; }
-        public string SecondBotToken { get; set; }
-        public ulong FirstGuildToken { get; set;}
-        public ulong SecondGuildToken { get; set;}
+        public string? BotToken { get; set; }
+        public ulong GuildId { get; set;}
+        
     }
 
     public class Program
@@ -50,9 +49,27 @@ namespace _132
         {
             get
             {
-                string tempConfig = File.ReadAllText("config.json");
-                Config tempBotConfig = JsonConvert.DeserializeObject<Config>(tempConfig);
-                return tempBotConfig;
+                try
+                {
+                    string tempConfig = File.ReadAllText("config.json");
+                    Config? _botConfig = JsonConvert.DeserializeObject<Config>(tempConfig);
+                    if(_botConfig != null )
+                    {
+                        return _botConfig;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Config not founded");
+                        Environment.Exit(1);
+                        return null;
+                    }
+                }
+                catch(FileNotFoundException)
+                {
+                    Console.WriteLine("File not founded");
+                    Environment.Exit(1);
+                    return null;
+                }
             }
         }
 
@@ -61,7 +78,7 @@ namespace _132
 
             discord = new DiscordClient(new DiscordConfiguration()
             {
-                Token = botConfig.SecondBotToken,
+                Token = botConfig.BotToken,
                 TokenType = TokenType.Bot,
                 Intents = DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents
             });
@@ -79,8 +96,8 @@ namespace _132
             });
 
             slash.RegisterCommands<Empty>();
-            slash.RegisterCommands<Empty>(botConfig.SecondGuildToken);
-            slash.RegisterCommands<MusicSL>(botConfig.SecondGuildToken);
+            slash.RegisterCommands<Empty>(botConfig.GuildId);
+            slash.RegisterCommands<MusicSL>(botConfig.GuildId);
 
 
             discord.MessageCreated += async (s, e) =>
