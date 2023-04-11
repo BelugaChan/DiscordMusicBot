@@ -21,6 +21,7 @@ using System.Threading;
 using System.Collections.Generic;
 using SpotifyAPI.Web;
 using SpotifyAPI.Web.Auth;
+using _132.PlayerController;
 using Newtonsoft.Json;
 
 namespace _132
@@ -53,10 +54,7 @@ namespace _132
                 {
                     string tempConfig = File.ReadAllText("config.json");
                     Config? _botConfig = JsonConvert.DeserializeObject<Config>(tempConfig);
-                    if(_botConfig != null )
-                    {
-                        return _botConfig;
-                    }
+                    if(_botConfig != null ) return _botConfig;
                     else
                     {
                         Console.WriteLine("Config not founded");
@@ -153,27 +151,8 @@ namespace _132
                     string path = Sqlite(number);
                     fullPath = Path.GetFullPath(path);
                 }
-                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
-
-                var vnext = ctx.Client.GetVoiceNext();
-                var connection = vnext.GetConnection(ctx.Guild);
-                var channel = ctx.Member.VoiceState?.Channel;
-                if (connection == null && channel != null)
-                {
-                    connection = await vnext.ConnectAsync(channel);
-                    connection.VoiceReceived += VoiceReceiveHandler;
-                }
-                else if (connection == null && channel == null)
-                {
-                    builder = new DiscordWebhookBuilder().WithContent("You must be in a voice channel to use this command.");
-                    await ctx.EditResponseAsync(builder);
-                    return;
-                }
-                var transmit = connection.GetTransmitSink();
-                builder = new DiscordWebhookBuilder().WithContent($"Now playing: {Path.GetFileNameWithoutExtension(fullPath)}");
-                await ctx.EditResponseAsync(builder);
-                if (!connection.IsPlaying)
-                    await ConvertAudioToPcmAsync(fullPath, transmit);
+                
+                await PlayerControl.PlayMusic(ctx, fullPath);
             }
 
             [SlashCommand("leave", "leave voice channel")]
@@ -202,11 +181,9 @@ namespace _132
                     return;
                 }
 
-                var transmit = connection.GetTransmitSink();
+                PlayerControl.PauseMusic(connection);
 
-                transmit.Pause();
                 builder = new DiscordWebhookBuilder().WithContent("Done!");
-
                 await ctx.EditResponseAsync(builder);
             }
 
@@ -224,9 +201,8 @@ namespace _132
                     return;
                 }
 
-                var transmit = connection.GetTransmitSink();
+                PlayerControl.ResumeMusic(connection);
 
-                await transmit.ResumeAsync();
                 builder = new DiscordWebhookBuilder().WithContent("Done!");
                 await ctx.EditResponseAsync(builder);
 
@@ -379,26 +355,5 @@ namespace _132
             }
             return e;
         }      
-
-        public static async Task ConvertAudioToPcmAsync(string filePath, VoiceTransmitSink output)
-        {
-            MediaFoundationReader reader = new(filePath);
-            using (reader)
-            {
-                var buffer = new byte[81920];
-                int byteCount;
-                while ((byteCount = reader.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    await output.WriteAsync(buffer, 0, byteCount);
-                    
-                    //await CheckMessage(output, ctx);
-                }
-            }
-                                  
-            reader.Close();
-            output.Pause();
-            output.Dispose();                                               
-            
-        }
     }
 }
