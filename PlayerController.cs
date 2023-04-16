@@ -31,6 +31,7 @@ namespace _132.PlayerController
             var vnext = ctx.Client.GetVoiceNext();
             var connection = vnext.GetConnection(ctx.Guild);
             var channel = ctx.Member.VoiceState?.Channel;
+            
             if (connection == null && channel != null)
             {
                 connection = await vnext.ConnectAsync(channel);
@@ -42,13 +43,16 @@ namespace _132.PlayerController
                 return;
             }
 
-            pauseFlags[connection.TargetChannel] = false;
-            builder = new DiscordWebhookBuilder().WithContent($"Now playing: {Path.GetFileNameWithoutExtension(fullPath)}");
-            await ctx.EditResponseAsync(builder);
+            
+
             if (!connection.IsPlaying)
             {
-                await ConvertAudioToPcmAsync(fullPath, connection);
-                connection.Dispose();
+                pauseFlags[connection.TargetChannel] = false;
+                builder = new DiscordWebhookBuilder().WithContent($"Now playing: {fullPath}");
+                await ctx.EditResponseAsync(builder);
+
+                await ConvertAudioPcm(fullPath, connection);
+                //connection.Dispose();
             }
                 
         }
@@ -93,5 +97,22 @@ namespace _132.PlayerController
             transmit.Dispose();
 
         }
+
+        private static async Task ConvertAudioPcm(string filePath, VoiceNextConnection connection)
+        {
+            var ytdl = Process.Start(new ProcessStartInfo
+            {
+                FileName = "yt-dlp",
+                Arguments = $@"-f bestaudio ""{filePath}"" -g",
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            });
+
+
+            var pcm = ytdl.StandardOutput.ReadLine();
+
+            await ConvertAudioToPcmAsync(pcm, connection);
+        }
+        
     }
 }
