@@ -12,21 +12,28 @@ using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using _132;
+using YoutubeDLSharp;
 using System.Diagnostics;
 using Microsoft.VisualBasic;
+using Swan.Parsers;
+using SpotifyAPI.Web;
 
 namespace _132.PlayerController
 {
     public static class PlayerControl
     {
+        private static CancellationTokenSource cancelTokenSource = new CancellationTokenSource();
+
+        private static CancellationToken token = cancelTokenSource.Token;
+
         // Флаг для отслеживания состояния паузы
         private static Dictionary<DiscordChannel, bool> pauseFlags = new();
 
         // Метод для воспроизведения музыки
-        public static async Task PlayMusic(InteractionContext ctx, string fullPath)
+        public static async Task PlayMusic(InteractionContext ctx, string fullPath, CancellationToken cancelToken)
         {
             DiscordWebhookBuilder builder;
-            await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+            
 
             var vnext = ctx.Client.GetVoiceNext();
             var connection = vnext.GetConnection(ctx.Guild);
@@ -46,11 +53,10 @@ namespace _132.PlayerController
             builder = new DiscordWebhookBuilder().WithContent($"Now playing: {Path.GetFileNameWithoutExtension(fullPath)}");
             await ctx.EditResponseAsync(builder);
             if (!connection.IsPlaying)
-            {
-                await ConvertAudioToPcmAsync(fullPath, connection);
-                connection.Dispose();
+            {                
+                await ConvertAudioToPcmAsync(fullPath, connection, cancelToken);
             }
-                
+
         }
 
         // Метод для приостановки воспроизведения музыки
@@ -67,30 +73,27 @@ namespace _132.PlayerController
             pauseFlags[voiceConnection.TargetChannel] = false;
         }
 
-        private static async Task ConvertAudioToPcmAsync(string filePath, VoiceNextConnection connection)
+        public static async Task ConvertAudioToPcmAsync(string filePath, VoiceNextConnection connection, CancellationToken Token)
         {
+
             var transmit = connection.GetTransmitSink();
             MediaFoundationReader reader = new(filePath);
+            
             using (reader)
             {
                 var buffer = new byte[81920];
                 int byteCount;
-                while ((byteCount = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                while ((byteCount = await reader.ReadAsync(buffer, 0, buffer.Length, Token)) > 0)
                 {
-                    
-                    if (pauseFlags[connection.TargetChannel])
+                    while (pauseFlags[connection.TargetChannel])
                     {
                         await Task.Delay(10);
-                        continue;
                     }
-
-                    await transmit.WriteAsync(buffer, 0, byteCount);
+                    await transmit.WriteAsync(buffer, 0, byteCount, Token);
                 }
             }
-
             reader.Close();
-            transmit.Pause();
-            transmit.Dispose();
+            reader.Dispose();
 
         }
     }
