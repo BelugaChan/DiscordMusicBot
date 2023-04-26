@@ -26,6 +26,10 @@ using Newtonsoft.Json;
 using DSharpPlus.CommandsNext;
 using YoutubeDLSharp.Options;
 using YoutubeDLSharp;
+using NReco.VideoConverter;
+using DSharpPlus.Interactivity.Extensions;
+using DSharpPlus.Interactivity;
+using System.Security.Policy;
 
 namespace _132
 {
@@ -36,8 +40,10 @@ namespace _132
 
     }
 
-    public class Program
+    public static class Program
     {
+              
+
         private static StringBuilder stringBuilder = new StringBuilder();
 
         private static DiscordClient discord;
@@ -49,6 +55,8 @@ namespace _132
         private static SpotifyClient spotify = new(config);
 
         private static List<string> tracks = new();
+
+        private static RunResult<string> res;
         internal static Config botConfig
         {
             get
@@ -119,17 +127,65 @@ namespace _132
 
         public class MusicSL : ApplicationCommandModule
         {
-            [SlashCommand("help", "find a bug?")]
-            public static async Task HelpCommand(InteractionContext ctx)
+            private static CancellationTokenSource cancelTokenSource = new CancellationTokenSource();
+
+            [SlashCommand("List", "List of all slash-commands")]
+            public static async Task ListCommand(InteractionContext ctx)
             {
-                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
-                var builder = new DiscordWebhookBuilder().WithContent("If you find a bug in the bot, you can contact its developers in telegram:\r\n@belugach4n\r\n@Sadfaded");
-                await ctx.EditResponseAsync(builder);
-                
+                await SendEmbed(ctx, DiscordColor.Aquamarine, "1.Help - find a bug?\r\n" +
+                    "2.Control - Control music\r\n3.Join - Joining to a voice channel\r\n4.Play - Playing radio or song\r\n" +
+                    "5.Leave - Leaving a voice channel\r\n6.Stop - Stop playing music\r\n" +
+                    "7.Nightcore - Make nightcore or slow and reverb a song\r\n8.Show - show all downloaded songs\r\n" +
+                    "9.Download - download audio track from YouTube");
             }
 
+            [SlashCommand("Nightcore", "Make nightcore or slow and reverb a song")]
+            public static async Task NightcoreCommand(InteractionContext ctx, [Option("link", "link from youtube")] string link, [Option("choose", "true: nightcore, false: slow and reverb")] bool choose)
+            {
+                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+                var builder = new DiscordWebhookBuilder().WithContent("Good choice! Now downloading your song...");
+                await ctx.EditResponseAsync(builder);
 
-                [SlashCommand("join", "join to a channel")]
+                
+                await Download(link, 1);
+                builder = new DiscordWebhookBuilder().WithContent("Your song has been downloaded! Now changing your song!");
+                await ctx.EditResponseAsync(builder);
+
+                string check1 = res.Data.Replace(" ","");
+                          
+                string acceleration;
+                string tempo;
+                string type = "";
+                if (choose == true)
+                {
+                    type = "(nightcore)";
+                    acceleration = "1.05";
+                    tempo = "1.1";
+                }
+                else
+                {
+                    type = "(slowed)";
+                    acceleration = "0.95";
+                    tempo = "1";
+                }
+                string check2 = res.Data.Insert(res.Data.Length - 4, $"{type}").Replace(" ", "");
+                var ffMpeg = new FFMpegConverter();
+                ffMpeg.Invoke(
+                    $@"-i {check1} -af aformat=sample_fmts=s16:sample_rates=44100,atempo={acceleration},asetrate=44100*{acceleration},atempo={tempo} -vn {check2}"                
+                );
+                File.Delete($"{check1}");
+                Stream stream = new FileStream(check2, FileMode.Open, FileAccess.Read);
+                builder = new DiscordWebhookBuilder().WithContent(":3").AddFile($"{check2}", stream);
+                await ctx.EditResponseAsync(builder);
+            }
+
+            [SlashCommand("Help", "Find a bug?")]
+            public static async Task HelpCommand(InteractionContext ctx)
+            {
+                await SendEmbed(ctx, DiscordColor.Magenta, "If you find a bug in the bot, you can contact its developers in telegram:\r\n@belugach4n\r\n@Sadfaded");                               
+            }
+
+            [SlashCommand("Join", "Join to a voice channel")]
             public static async Task JoinCommand(InteractionContext ctx)
             {
                 DiscordChannel channel;
@@ -137,122 +193,296 @@ namespace _132
                 {
                     channel = ctx.Member.VoiceState.Channel;
                 }
-                catch (NullReferenceException)
+                catch (NullReferenceException ex)
                 {
-                    await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().WithContent("You must be in a voice channel to use this command."));
+                    Console.WriteLine(ex.Message);
+                    await SendEmbed(ctx,DiscordColor.Orange, "You must be in a voice channel to use this command.");                    
                     return;
                 }
-
-                await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().WithContent($"Joining {channel.Name}"));
+                await SendEmbed(ctx, DiscordColor.Aquamarine, $"Joining {channel.Name}");             
                 var vnext = ctx.Client.GetVoiceNext();
-                await vnext.ConnectAsync(channel);
+                var connection = await vnext.ConnectAsync(channel);
+                connection.VoiceReceived += VoiceReceiveHandler;
             }
 
 
-            [SlashCommand("play", "playing radio or song")]
-            public static async Task PlayMusicCommand(InteractionContext ctx, [Option("url", "write youtube url")] string url = null)
+            [SlashCommand("Play", "Playing radio or song")]
+            public static async Task PlayMusicCommand(InteractionContext ctx, [Option("url", "write youtube url")] string url = null,[Option("number", "choose song's number")] double number = -1)
             {
-                try
+                if (url!= null)
                 {
-                    if(string.IsNullOrEmpty(url))
+                    try
                     {
-                        await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
-                        var builder = new DiscordWebhookBuilder().WithContent("Write a link");
-                        await ctx.EditResponseAsync(builder);
-                        return;
+                        await PlayerControl.PlayMusic(ctx, url, cancelTokenSource.Token);
                     }
-
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex);
+                        await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+                        var builder = new DiscordWebhookBuilder().WithContent("incorrect url, please try again");
+                        await ctx.EditResponseAsync(builder);
+                    }
+                }
+                else
+                {
+                    await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+                    var builder = new DiscordWebhookBuilder();
+                    string fullPath = "";
+                    if (number == -1)
+                    {
+                        fullPath = "https://pool.anison.fm:9000/AniSonFM(320)";
+                    }
                     else
                     {
-                        var fullPath = url;
-                        await PlayerControl.PlayMusic(ctx, fullPath);
+                        string path = ReadSqlite(number);
+                        fullPath = Path.GetFullPath(path);
+                    }                  
+                    try
+                    {
+                        builder = new DiscordWebhookBuilder().WithContent($"Now playing: {Path.GetFileNameWithoutExtension(fullPath)}");
+                        await ctx.EditResponseAsync(builder);
+                        await PlayerControl.PlayMusic(ctx, fullPath, cancelTokenSource.Token);
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex);
+                        await SendEmbed(ctx, DiscordColor.Lilac, "incorrect song's index, please try again");
+                    }
+                }
 
-                    
+                //if (string.IsNullOrEmpty(url))
+                //{
+                //    await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+                //    var builder = new DiscordWebhookBuilder().WithContent("Write a link");
+                //    await ctx.EditResponseAsync(builder);
+                //    return;
+                //}
+
+            }
+
+            [SlashCommand("Leave", "Leave voice channel")]
+            public static async Task LeaveCommand(InteractionContext ctx)
+            {
+                DiscordChannel channel = ctx.Member.VoiceState.Channel; ;
+                try
+                {
+                    await SendEmbed(ctx, DiscordColor.Chartreuse, "voice channel leaved");
+                    var vnext = ctx.Client.GetVoiceNext();
+                    var connection = vnext.GetConnection(ctx.Guild);
+                    connection.Disconnect();                                        
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine(ex);
-                    await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
-                    var builder = new DiscordWebhookBuilder().WithContent("incorrect song's index, please try again");
-                    await ctx.EditResponseAsync(builder);
-                }
-                
-                
-            }
-
-            [SlashCommand("leave", "leave voice channel")]
-            public static async Task LeaveCommand(InteractionContext ctx)
-            {
-                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
-                var vnext = ctx.Client.GetVoiceNext();
-                var connection = vnext.GetConnection(ctx.Guild);
-                connection.Disconnect();
-                var builder = new DiscordWebhookBuilder().WithContent("voice channel leaved");
-                await ctx.EditResponseAsync(builder);
+                    await SendEmbed(ctx, DiscordColor.IndianRed, $"something went wrong and I can't disconnect from {channel.Name}");
+                }                
             }
 
 
-            [SlashCommand("Pause", "Turn off sound")]
-            public static async Task PauseCommand(InteractionContext ctx)
+            [SlashCommand("Control", "Control music")]
+            public static async Task ControlCommand(InteractionContext ctx)
             {
-                var builder = new DiscordWebhookBuilder();
-                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
                 var vnext = ctx.Client.GetVoiceNext();
                 var connection = vnext.GetConnection(ctx.Guild);
                 if (connection == null)
                 {
-                    builder = new DiscordWebhookBuilder().WithContent("Nothing playing here");
-                    await ctx.EditResponseAsync(builder);
+                    await SendEmbed(ctx, DiscordColor.Chartreuse, "Nothing playing here");
                     return;
                 }
+                Button pause = new(ButtonStyle.Danger, "pause_button", "pause");
+                var buttonCompPause = new DiscordButtonComponent(pause.Style, pause.CustomId, pause.Label, false, pause.Emoji);
 
-                PlayerControl.PauseMusic(connection);
+                Button resume = new(ButtonStyle.Success, "resume_button", "resume");
+                var buttonCompResume = new DiscordButtonComponent(resume.Style, resume.CustomId, resume.Label, false, resume.Emoji);
 
-                builder = new DiscordWebhookBuilder().WithContent("Done!");
-                await ctx.EditResponseAsync(builder);
-            }
+                await SendEmbed(ctx, DiscordColor.HotPink, "Now you can control music", new DiscordComponent[] { buttonCompResume, buttonCompPause });
 
-            [SlashCommand("Resume", "Turn on sound")]
-            public static async Task ResumeCommand(InteractionContext ctx)
-            {
-                var builder = new DiscordWebhookBuilder();
-                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
-                var vnext = ctx.Client.GetVoiceNext();
-                var connection = vnext.GetConnection(ctx.Guild);
-                if (connection == null)
+                discord.ComponentInteractionCreated += async (s, e) =>
                 {
-                    builder = new DiscordWebhookBuilder().WithContent("Nothing playing here");
-                    await ctx.EditResponseAsync(builder);
-                    return;
-                }
-
-                PlayerControl.ResumeMusic(connection);
-
-                builder = new DiscordWebhookBuilder().WithContent("Done!");
-                await ctx.EditResponseAsync(builder);
-
+                    if (pause.CustomId == e.Id)
+                    {
+                        pause.PauseMusic(connection);
+                    }
+                    else if(resume.CustomId == e.Id)
+                    {
+                        resume.ResumeMusic(connection);
+                    }
+                    var builder = new DiscordInteractionResponseBuilder().WithContent("Done!");
+                    await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, builder);
+                };                                               
             }
 
-            [SlashCommand("stop", "stop radio or song")]
+            [SlashCommand("Stop", "stop radio or song")]
             public async Task StopCommand(InteractionContext ctx)
-            {
-                var builder = new DiscordWebhookBuilder();
-                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+            {               
                 var vnext = ctx.Client.GetVoiceNext();
                 var connection = vnext.GetConnection(ctx.Guild);
+                
                 if (connection == null)
                 {
-                    builder = new DiscordWebhookBuilder().WithContent("Nothing playing here");
-                    await ctx.EditResponseAsync(builder);
+                    await SendEmbed(ctx, DiscordColor.Chartreuse, "Nothing playing here");
                     return;
                 }
 
-                var transmit = connection.GetTransmitSink();
+                cancelTokenSource.Cancel();
+                cancelTokenSource = new CancellationTokenSource();
 
-                transmit.Dispose();
-                builder = new DiscordWebhookBuilder().WithContent("stopped");
-                await ctx.EditResponseAsync(builder);
+                await SendEmbed(ctx, DiscordColor.Wheat, "stopped");
+
+            }
+
+            [SlashCommand("Show", "show all songs")]
+            public static async Task ShowCommand(InteractionContext ctx)
+            {
+                tracks.Clear();
+                
+                try
+                {
+                    tracks = ShowSongs();
+                    await SendEmbed(ctx, DiscordColor.Aquamarine, BuildString(tracks));                   
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    await SendEmbed(ctx,DiscordColor.Aquamarine, "Something went wrong :(");
+                }
+                
+                tracks.Clear();
+            }
+
+
+            [SlashCommand("Download", "download audio from youtube")]
+            public static async Task DownloadCommand(InteractionContext ctx, [Option("search_link", "enter your link")] string link)
+            {
+                DiscordMessage message = await ctx.Channel.SendMessageAsync("The download may take some time");
+                var builder = new DiscordWebhookBuilder();
+                await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);                
+                try
+                {
+                    await Download(link, 0);
+                    builder = new DiscordWebhookBuilder().WithContent("Your song has been downloaded and added to the database!");
+                    await ctx.EditResponseAsync(builder);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    await ctx.Channel.DeleteMessageAsync(message);
+                    builder = new DiscordWebhookBuilder().WithContent($"Your download link is incorrect.\r\nlink examples: https://www.youtube.com/watch?v=p77-glF--GA&t=7s\r\nor https://music.youtube.com/watch?v=ZmJ5oBdJTXQ");
+                    await ctx.EditResponseAsync(builder);                    
+                }                                                
+                                            
+            }            
+
+            private static async Task SendEmbed(InteractionContext ctx, DiscordColor color, string description, DiscordComponent[]? components = null, string? title = null)
+            {
+                var message = new DiscordInteractionResponseBuilder()
+                .AddEmbed(new DiscordEmbedBuilder
+                {
+                    Color = color,
+                    Title = title,
+                    Description = $"{description}",
+
+                });
+                if (components != null)
+                {
+                    message.AddComponents(components);                    
+                }
+                await ctx.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,message);
+                //await ctx.Channel.SendMessageAsync(message);
+            }
+
+            private static async Task Download(string link, int check)
+            {
+                var ytdl = new YoutubeDL() { YoutubeDLPath = "yt-dlp.exe" };
+                ytdl.FFmpegPath = "ffmpeg.exe";
+                ytdl.OutputFolder = $"{Environment.CurrentDirectory}\\Music";
+                res = await ytdl.RunAudioDownload(
+                    link,
+                    AudioConversionFormat.Wav
+                    );
+                File.Move(res.Data, res.Data.Replace(" ", ""));
+                if (check == 0)
+                {
+                    string songName = res.Data[42..^4];
+                    AddSqlite(songName, res.Data);
+                }               
+            }           
+
+            private static async Task VoiceReceiveHandler(VoiceNextConnection connection, VoiceReceiveEventArgs args)
+            {
+                var transmit = connection.GetTransmitSink();
+                await transmit.WriteAsync(args.PcmData);
+            }
+
+            //ф-ия для слэш-команды show, чтобы правильно отоброжались песни в сообщении
+            public static string BuildString(List<string> list)
+            {
+                stringBuilder.Clear();
+                list = ShowSongs();
+                for (int i = 0; i < list.Count; i++)
+                {
+                    stringBuilder.Append($"{i + 1} {list[i]} \r\n");
+                }
+                return stringBuilder.ToString();
+            }
+
+            //считывание песен для слэш команды show
+            public static List<string> ShowSongs()
+            {
+                List<string> songs = new();
+                string cs = $"URI=file:{Path.GetFullPath(@"music.db")}";
+                using var con = new SQLiteConnection(cs);
+                con.Open();
+                string stm = "SELECT * FROM music";
+                using var cmd = new SQLiteCommand(stm, con);
+                using SQLiteDataReader rdr = cmd.ExecuteReader();
+                while (rdr.Read())
+                {
+                    songs.Add(rdr.GetString(1));
+                }
+                return songs;
+            }
+
+            //считывание бд для слэш команды play
+            private static string ReadSqlite(double number)
+            {
+                string e = "";
+                string cs = $"URI=file:{Path.GetFullPath(@"music.db")}";
+                using var con = new SQLiteConnection(cs);
+                con.Open();
+                string stm = "SELECT * FROM music";
+                using var cmd = new SQLiteCommand(stm, con);
+                using SQLiteDataReader rdr = cmd.ExecuteReader();
+                while (rdr.Read())
+                {
+                    if (rdr.GetInt32(0) == number)
+                    {
+                        e = rdr.GetString(2);
+                        break;
+                    }
+                }
+                return e;
+            }
+
+            private static void AddSqlite(string name, string path)
+            {
+                string cs = $"URI=file:{Path.GetFullPath(@"music.db")}";
+                using var con = new SQLiteConnection(cs);
+                con.Open();
+
+
+                string query1 = "INSERT INTO music (id ,name, path) VALUES (@id, @name, @path)";
+                var command1 = new SQLiteCommand(query1, con);
+                
+                string query2 = "SELECT COUNT(*) FROM music";
+                var command2 = new SQLiteCommand(query2, con);
+                int rowCount = Convert.ToInt32(command2.ExecuteScalar());
+                
+                command1.Parameters.AddWithValue("id", rowCount + 1);
+                command1.Parameters.AddWithValue("name", name);
+                command1.Parameters.AddWithValue("path", path);
+                command1.ExecuteNonQuery();
+                con.Close();
 
             }
         }
