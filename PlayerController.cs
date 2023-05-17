@@ -60,7 +60,6 @@ namespace _132.PlayerController
                 await ctx.EditResponseAsync(builder);
                 await audioTransmit.ConvertAudioToPcmAsync(filePath, connection, cancelToken);
             }
-
         }
 
         public async Task PlayMusic(InteractionContext ctx, double number, CancellationToken cancelToken)
@@ -88,16 +87,16 @@ namespace _132.PlayerController
         {
             DiscordWebhookBuilder builder;
 
-            var connection = await PreparingTransmit(ctx);
-
-            if (!audioTransmit.IsPlaying)
-            {
-                audioTransmit.IsPaused = false;
-                audioTransmit.IsPlaying = true;
-                builder = new DiscordWebhookBuilder().WithContent($"Now playing: {url}");
-                await ctx.EditResponseAsync(builder);
-                await audioTransmit.YoutubePcmAsync(ctx, url, connection, cancelToken);
+            if (audioTransmit.IsPlaying)
+            {           
+                StopMusic();
             }
+            var connection = await PreparingTransmit(ctx);
+            audioTransmit.IsPaused = false;
+            audioTransmit.IsPlaying = true;
+            builder = new DiscordWebhookBuilder().WithContent($"Now playing: {url}");
+            await ctx.EditResponseAsync(builder);
+            await audioTransmit.YoutubePcmAsync(ctx, url, connection, cancelToken);
 
         }
 

@@ -11,51 +11,42 @@ namespace _132
 
     public class MusicQueue
     {
-        private List<MusicTrack> _tracks = new();
+        private List<string> tracks = new();
+        
+        private Queue<string> queue = new Queue<string>();
 
-        // Методы для управления очередью треков
-        public void AddTrack(MusicTrack track)
+        public void AddTrack(string url)
         {
-            _tracks.Add(track);
-
-            if (_tracks.Count == 1)
-            {
-                //musicPlayer.Play(track.Url);
-            }
+            queue.Enqueue(url);            
         }
-
-        public void AddTrack(DiscordUser author, string url)
-        {
-            MusicTrack track = new(author, url);
-            _tracks.Add(track);
-        }
-
+        
         public void RemoveTrack(int index)
         {
-            if (index >= 0 && index < _tracks.Count)
-            {
-                _tracks.RemoveAt(index);
-            }
+            tracks = queue.ToList();
+            tracks.RemoveAt(index);
+            queue = new Queue<string>(tracks);
         }
 
-        public MusicTrack GetNextTrack()
+        public string GetNextTrack()
         {
-            // Возвращает следующий трек в очереди
-            // или null, если очередь пуста
-            return _tracks.FirstOrDefault();
+            return queue.Dequeue();
         }
+
+        public List<string> ShowQueue()
+        {
+            return queue.ToList();
+        }
+
     }
 
-    public class MusicTrack
-    {
-        public MusicTrack(DiscordUser Author, string Url)
-        {
-            this.Author = Author; 
-            this.Url = Url;
-        }
-        public DiscordUser Author { get; set; }
-        public string Url { get; set; }
+    //public class MusicTrack
+    //{
+    //    public MusicTrack(string url)
+    //    {
+    //        Url = url;
+    //    }
+    //    public string Url { get; set; }
 
-        // Дополнительные свойства и методы, если необходимо
-    }
+    //    // Дополнительные свойства и методы, если необходимо
+    //}
 }
