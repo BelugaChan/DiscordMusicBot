@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Programming\\132\\132.csproj": {}
+    "c:\\Users\\Wizard_Light_DH-11\\source\\repos\\BelugaChan\\DiscordMusicBot\\132.csproj": {}
   },
   "projects": {
-    "D:\\Programming\\132\\132.csproj": {
+    "c:\\Users\\Wizard_Light_DH-11\\source\\repos\\BelugaChan\\DiscordMusicBot\\132.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Programming\\132\\132.csproj",
+        "projectUniqueName": "c:\\Users\\Wizard_Light_DH-11\\source\\repos\\BelugaChan\\DiscordMusicBot\\132.csproj",
         "projectName": "132",
-        "projectPath": "D:\\Programming\\132\\132.csproj",
-        "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "D:\\Programming\\132\\obj\\",
+        "projectPath": "c:\\Users\\Wizard_Light_DH-11\\source\\repos\\BelugaChan\\DiscordMusicBot\\132.csproj",
+        "packagesPath": "C:\\Users\\Wizard_Light_DH-11\\.nuget\\packages\\",
+        "outputPath": "c:\\Users\\Wizard_Light_DH-11\\source\\repos\\BelugaChan\\DiscordMusicBot\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\Wizard_Light_DH-11\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -25,7 +25,6 @@
           "net6.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -84,9 +83,25 @@
               "target": "Package",
               "version": "[3.1.1, )"
             },
+            "Microsoft.Extensions.Configuration": {
+              "target": "Package",
+              "version": "[7.0.0, )"
+            },
+            "Microsoft.Extensions.Configuration.FileExtensions": {
+              "target": "Package",
+              "version": "[7.0.0, )"
+            },
+            "Microsoft.Extensions.Configuration.Json": {
+              "target": "Package",
+              "version": "[7.0.0, )"
+            },
             "NAudio": {
               "target": "Package",
               "version": "[2.1.0, )"
+            },
+            "NReco.VideoConverter": {
+              "target": "Package",
+              "version": "[1.2.1, )"
             },
             "SQLitePCLRaw.bundle_sqlcipher": {
               "target": "Package",
@@ -100,11 +115,23 @@
               "target": "Package",
               "version": "[2.1.4, )"
             },
+            "SpotifyAPI.Web": {
+              "target": "Package",
+              "version": "[7.0.0, )"
+            },
+            "SpotifyAPI.Web.Auth": {
+              "target": "Package",
+              "version": "[7.0.0, )"
+            },
             "System.Data.SQLite": {
               "target": "Package",
               "version": "[1.0.117, )"
             },
             "WMP.Core": {
+              "target": "Package",
+              "version": "[1.0.0, )"
+            },
+            "YoutubeDLSharp": {
               "target": "Package",
               "version": "[1.0.0, )"
             }
@@ -125,7 +152,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.201\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.400\\RuntimeIdentifierGraph.json"
         }
       }
     }

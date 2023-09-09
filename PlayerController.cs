@@ -1,19 +1,9 @@
-﻿using DSharpPlus;
-using DSharpPlus.Entities;
+﻿using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
 using DSharpPlus.VoiceNext;
 using NAudio.Wave;
-using DSharpPlus.EventArgs;
-using EmbedIO.Utilities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Channels;
-using System.Threading.Tasks;
-using _132;
 using System.Diagnostics;
-using Microsoft.VisualBasic;
+
 
 namespace _132.PlayerController
 {
