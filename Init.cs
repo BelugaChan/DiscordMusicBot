@@ -35,14 +35,24 @@ namespace _132.init
                 return;
             }
 
+            var guilds = _client.Guilds;
+
             var slash = _client.UseSlashCommands(new SlashCommandsConfiguration
             {
-                Services = new ServiceCollection().AddSingleton<Random>().BuildServiceProvider()
+                Services = new ServiceCollection().
+                AddSingleton<Random>().
+                BuildServiceProvider()
             });
 
             slash.RegisterCommands<Empty>();
-            slash.RegisterCommands<Empty>(botConfig.GuildId);
-            slash.RegisterCommands<MusicSL>(botConfig.GuildId);
+
+            foreach (var guild in guilds.Keys)
+            {
+                slash.RegisterCommands<Empty>(guild);
+                slash.RegisterCommands<MusicSL>(guild);
+            }
+
+            
 
             _client.Ready += Client_Ready;
 

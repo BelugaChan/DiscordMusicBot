@@ -2,6 +2,7 @@ using DSharpPlus.VoiceNext.EventArgs;
 using DSharpPlus.SlashCommands;
 using DSharpPlus.Entities;
 using _132.PlayerController;
+using DSharpPlus.VoiceNext;
 
 namespace _132.SlashCommands
 {
@@ -9,7 +10,7 @@ namespace _132.SlashCommands
 
     public class MusicSL : ApplicationCommandModule
     {
-        private static CancellationTokenSource cancelTokenSource = new CancellationTokenSource();
+        private static CancellationTokenSource cancelTokenSource = new();
 
         private static PlayerControl playerControl = new();
 

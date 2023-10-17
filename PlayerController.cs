@@ -1,108 +1,166 @@
 ﻿using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
 using DSharpPlus.VoiceNext;
-using NAudio.Wave;
-using System.Diagnostics;
-
+using System.Data.SQLite;
 
 namespace _132.PlayerController
 {
-    public static class PlayerControl
+    public class PlayerControl
     {
         // Флаг для отслеживания состояния паузы
-        private static Dictionary<DiscordChannel, bool> pauseFlags = new();
 
-        // Метод для воспроизведения музыки
-        public static async Task PlayMusic(InteractionContext ctx, string fullPath)
+        public AudioTransmit audioTransmit = new();
+
+        private async Task<VoiceNextConnection?> PreparingTransmit(InteractionContext ctx)
         {
-            DiscordWebhookBuilder builder;
-            await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
-
             var vnext = ctx.Client.GetVoiceNext();
             var connection = vnext.GetConnection(ctx.Guild);
             var channel = ctx.Member.VoiceState?.Channel;
-            
             if (connection == null && channel != null)
             {
                 connection = await vnext.ConnectAsync(channel);
             }
             else if (connection == null && channel == null)
             {
-                builder = new DiscordWebhookBuilder().WithContent("You must be in a voice channel to use this command.");
+                var builder = new DiscordWebhookBuilder().WithContent("You must be in a voice channel to use this command.");
                 await ctx.EditResponseAsync(builder);
-                return;
             }
 
-            
+            return connection;
+        }
 
-            if (!connection.IsPlaying)
+        // Метод для воспроизведения музыки
+        public async Task PlayMusic(InteractionContext ctx, string filePath, CancellationToken cancelToken)
+        {
+            DiscordWebhookBuilder builder;
+
+            var connection = await PreparingTransmit(ctx);
+
+            if (!audioTransmit.IsPlaying)
             {
-                pauseFlags[connection.TargetChannel] = false;
-                builder = new DiscordWebhookBuilder().WithContent($"Now playing: {fullPath}");
+                audioTransmit.IsPaused = false;
+                audioTransmit.IsPlaying = true;
+                builder = new DiscordWebhookBuilder().WithContent($"Now playing: {Path.GetFileNameWithoutExtension(filePath)}");
+                await ctx.EditResponseAsync(builder);
+                await audioTransmit.ConvertAudioToPcmAsync(filePath, connection, cancelToken);
+            }
+
+        }
+
+        public async Task PlayMusic(InteractionContext ctx, double number, CancellationToken cancelToken)
+        {
+            DiscordWebhookBuilder builder;
+
+            var connection = await PreparingTransmit(ctx);
+
+            if (!audioTransmit.IsPlaying)
+            {
+                audioTransmit.IsPaused = false;
+                audioTransmit.IsPlaying = true;
+
+                string path = ReadSqlite(number);
+                var filePath = Path.GetFullPath(path);
+
+                builder = new DiscordWebhookBuilder().WithContent($"Now playing: {Path.GetFileNameWithoutExtension(filePath)}");
                 await ctx.EditResponseAsync(builder);
 
-                await ConvertAudioPcm(fullPath, connection);
-                //connection.Dispose();
+                await audioTransmit.PcmAsync(ctx, filePath, connection, cancelToken);
             }
-                
         }
 
-        // Метод для приостановки воспроизведения музыки
-        public static void PauseMusic(VoiceNextConnection voiceConnection)
+        public async Task PlayMusic(InteractionContext ctx, Uri url, CancellationToken cancelToken)
         {
-            voiceConnection.Pause();
-            pauseFlags[voiceConnection.TargetChannel] = true;
-        }
+            DiscordWebhookBuilder builder;
 
-        // Метод для возобновления воспроизведения музыки
-        public static void ResumeMusic(VoiceNextConnection voiceConnection)
-        {
-            voiceConnection.ResumeAsync();
-            pauseFlags[voiceConnection.TargetChannel] = false;
-        }
+            var connection = await PreparingTransmit(ctx);
 
-        private static async Task ConvertAudioToPcmAsync(string filePath, VoiceNextConnection connection)
-        {
-            var transmit = connection.GetTransmitSink();
-            MediaFoundationReader reader = new(filePath);
-            using (reader)
+            if (!audioTransmit.IsPlaying)
             {
-                var buffer = new byte[81920];
-                int byteCount;
-                while ((byteCount = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                audioTransmit.IsPaused = false;
+                audioTransmit.IsPlaying = true;
+                builder = new DiscordWebhookBuilder().WithContent($"Now playing: {url}");
+                await ctx.EditResponseAsync(builder);
+                await audioTransmit.YoutubePcmAsync(ctx, url, connection, cancelToken);
+            }
+
+        }
+
+        public async Task PlayMusic(InteractionContext ctx, Uri url, double number, CancellationToken cancelToken)
+        {
+            DiscordWebhookBuilder builder;
+
+            var connection = await PreparingTransmit(ctx);
+
+            if (!audioTransmit.IsPlaying)
+            {
+                if (number == -1)
                 {
-                    
-                    if (pauseFlags[connection.TargetChannel])
-                    {
-                        await Task.Delay(10);
-                        continue;
-                    }
+                    audioTransmit.IsPaused = false;
+                    audioTransmit.IsPlaying = true;
+                    builder = new DiscordWebhookBuilder().WithContent($"Now playing: {url}");
+                    await ctx.EditResponseAsync(builder);
 
-                    await transmit.WriteAsync(buffer, 0, byteCount);
+                    await audioTransmit.YoutubePcmAsync(ctx, url, connection, cancelToken);
+
+                }
+                else if (url == null)
+                {
+                    audioTransmit.IsPaused = false;
+                    audioTransmit.IsPlaying = true;
+
+                    string path = ReadSqlite(number);
+                    var fullPath = Path.GetFullPath(path);
+
+                    builder = new DiscordWebhookBuilder().WithContent($"Now playing: {Path.GetFileNameWithoutExtension(fullPath)}");
+                    await ctx.EditResponseAsync(builder);
+
+                    await audioTransmit.PcmAsync(ctx, fullPath, connection, cancelToken);
                 }
             }
 
-            reader.Close();
-            transmit.Pause();
-            transmit.Dispose();
-
         }
 
-        private static async Task ConvertAudioPcm(string filePath, VoiceNextConnection connection)
+        // Метод для приостановки воспроизведения музыки
+        public void PauseMusic()
         {
-            var ytdl = Process.Start(new ProcessStartInfo
-            {
-                FileName = "yt-dlp",
-                Arguments = $@"-f bestaudio ""{filePath}"" -g",
-                RedirectStandardOutput = true,
-                UseShellExecute = false
-            });
-
-
-            var pcm = ytdl.StandardOutput.ReadLine();
-
-            await ConvertAudioToPcmAsync(pcm, connection);
+            audioTransmit.IsPaused = true;
         }
-        
+
+        // Метод для возобновления воспроизведения музыки
+        public void ResumeMusic()
+        {
+            audioTransmit.IsPaused = false;
+        }
+
+        public void LoopMusic(bool isLooped)
+        {
+            audioTransmit.IsLooped = isLooped;
+        }
+
+        public void StopMusic()
+        {
+            audioTransmit.Closing();
+        }
+
+
+        private static string ReadSqlite(double number)
+        {
+            string e = "";
+            string cs = $"URI=file:{Path.GetFullPath(@"music.db")}";
+            using var con = new SQLiteConnection(cs);
+            con.Open();
+            string stm = "SELECT * FROM music";
+            using var cmd = new SQLiteCommand(stm, con);
+            using SQLiteDataReader rdr = cmd.ExecuteReader();
+            while (rdr.Read())
+            {
+                if (rdr.GetInt32(0) == number)
+                {
+                    e = rdr.GetString(2);
+                    break;
+                }
+            }
+            return e;
+        }
     }
 }
